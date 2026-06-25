@@ -1,4 +1,4 @@
-package com.example.foldersync;
+package za.co.felixsol.util.foldersync;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -7,6 +7,9 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.function.Predicate;
 
 public class Syncer {
@@ -15,11 +18,13 @@ public class Syncer {
     private final Database db;
     private final String includePattern;
     private final String excludePattern;
+    private final boolean force;
 
-    public Syncer(Database db, String includePattern, String excludePattern) {
+    public Syncer(Database db, String includePattern, String excludePattern, boolean force) {
         this.db = db;
         this.includePattern = includePattern;
         this.excludePattern = excludePattern;
+        this.force = force;
     }
 
     public void sync(Path source, Path dest) throws IOException {
@@ -28,16 +33,18 @@ public class Syncer {
         }
         Files.createDirectories(dest);
 
-        Predicate<Path> include = p -> true;
+        final PathMatcher includeMatcher;
         if (includePattern != null && !includePattern.isBlank()) {
-            PathMatcher m = source.getFileSystem().getPathMatcher("glob:" + includePattern);
-            include = p -> m.matches(p.getFileName());
+            includeMatcher = source.getFileSystem().getPathMatcher("glob:" + includePattern);
+        } else {
+            includeMatcher = null;
         }
 
-        Predicate<Path> exclude = p -> false;
+        final PathMatcher excludeMatcher;
         if (excludePattern != null && !excludePattern.isBlank()) {
-            PathMatcher m = source.getFileSystem().getPathMatcher("glob:" + excludePattern);
-            exclude = p -> m.matches(p.getFileName());
+            excludeMatcher = source.getFileSystem().getPathMatcher("glob:" + excludePattern);
+        } else {
+            excludeMatcher = null;
         }
 
         Files.walkFileTree(source, new SimpleFileVisitor<>() {
@@ -45,7 +52,8 @@ public class Syncer {
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                 try {
                     Path rel = source.relativize(file);
-                    if (!include.test(file) || exclude.test(file)) {
+                    if ((includeMatcher != null && !includeMatcher.matches(file.getFileName()))
+                            || (excludeMatcher != null && excludeMatcher.matches(file.getFileName()))) {
                         return FileVisitResult.CONTINUE;
                     }
                     Path target = dest.resolve(rel);
@@ -53,16 +61,27 @@ public class Syncer {
 
                     String checksum = sha256(file);
                     long lastModified = Files.getLastModifiedTime(file).toMillis();
+                    String lastModifiedText = Instant.ofEpochMilli(lastModified)
+                            .atZone(ZoneId.systemDefault())
+                            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
                     boolean shouldCopy = true;
-                    if (db.hasRecord(rel.toString())) {
-                        shouldCopy = false; // placeholder: compare checksum in future
+                    Database.FileRecord existing = db.getRecord(rel.toString());
+                    if (existing != null) {
+                        boolean checksumChanged = (existing.checksum == null && checksum != null)
+                                || (existing.checksum != null && !existing.checksum.equals(checksum));
+                        boolean timeChanged = existing.lastModified != lastModified;
+                        shouldCopy = checksumChanged || timeChanged;
+                    }
+
+                    if (force) {
+                        shouldCopy = true;
                     }
 
                     if (shouldCopy) {
                         LOG.info("Copying {} -> {}", file, target);
                         Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-                        db.upsertRecord(rel.toString(), checksum, lastModified);
+                        db.upsertRecord(rel.toString(), checksum, lastModified, lastModifiedText);
                     }
                 } catch (Exception e) {
                     LOG.warn("Failed to copy file {}", file, e);

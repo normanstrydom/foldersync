@@ -1,0 +1,58 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17 and cache Maven
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn -B -DskipTests clean package
+
+      - name: Upload shaded JAR
+        uses: actions/upload-artifact@v3
+        with:
+          name: shaded-jar
+          path: target/*-shaded.jar
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: shaded-jar
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          body: Release from commit ${{ github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: shaded-jar/foldersync-0.1.0-shaded.jar
+          asset_name: foldersync-0.1.0-shaded.jar
+          asset_content_type: application/java-archive
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
