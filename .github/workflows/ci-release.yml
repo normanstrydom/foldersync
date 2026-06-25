@@ -23,7 +23,7 @@ jobs:
         run: mvn -B -DskipTests clean package
 
       - name: Upload shaded JAR
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: shaded-jar
           path: target/*-shaded.jar
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: shaded-jar
 
