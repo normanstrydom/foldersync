@@ -31,6 +31,8 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download build artifact
         uses: actions/download-artifact@v4
@@ -51,7 +53,7 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: shaded-jar/foldersync-0.1.0-shaded.jar
+          asset_path: target/foldersync-0.1.0-shaded.jar
           asset_name: foldersync-0.1.0-shaded.jar
           asset_content_type: application/java-archive
         env:
