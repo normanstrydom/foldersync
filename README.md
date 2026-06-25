@@ -48,6 +48,28 @@ Examples:
 java -jar target/foldersync-0.1.0-shaded.jar -s "C:\src\one" -s "C:\src\two" -d "D:\backup"
 ```
 
+Run as a Windows service (sc)
+
+You can register the application as a Windows service using `sc create`. Be careful with quoting — the `binPath` should contain the full path to `java.exe` and the `-jar` command, wrapped in escaped quotes. Example (run from an Administrator PowerShell/CMD):
+
+```
+sc create FolderSyncService binPath= "\"C:\Program Files\Java\jdk-17\bin\java.exe\" -jar \"C:\git-work\foldersync\target\foldersync-0.1.0-shaded.jar\" -s \"C:\path\to\source\" -d \"D:\path\to\dest\" --watch" DisplayName= "FolderSync Service" start= auto
+```
+
+Then control the service with:
+
+```
+sc start FolderSyncService
+sc stop FolderSyncService
+sc delete FolderSyncService
+```
+
+Notes:
+- Running as a Windows service will run the process in a non-interactive session — logs go to whatever logging backend you configured (logback). Consider configuring a file appender in `logback.xml`.
+- If you need smoother service management (restarts, stdout/stderr capture, environment vars), consider using NSSM (Non-Sucking Service Manager) or a Windows service wrapper instead of `sc`.
+- If the service must run under a specific account, add `obj= "DOMAIN\User" password= "p@ss"` to the `sc create` command (requires elevated privileges).
+
+
 - Pairwise mapping:
 
 ```
