@@ -15,11 +15,11 @@ public class FoldersyncApp implements Callable<Integer> {
     @Option(names = {"-d", "--destination"}, description = "Destination directory (repeatable)", required = true)
     private List<Path> destinations = new ArrayList<>();
 
-    @Option(names = {"-i", "--include"}, description = "Include pattern (glob)")
-    private String includePattern;
+    @Option(names = {"-i", "--include"}, description = "Include pattern (glob). Repeatable to supply multiple patterns")
+    private List<String> includePatterns = new ArrayList<>();
 
-    @Option(names = {"-e", "--exclude"}, description = "Exclude pattern (glob)")
-    private String excludePattern;
+    @Option(names = {"-e", "--exclude"}, description = "Exclude pattern (glob). Repeatable to supply multiple patterns")
+    private List<String> excludePatterns = new ArrayList<>();
 
     @Option(names = {"-w", "--watch"}, description = "Watch source for changes and sync continuously")
     private boolean watch = false;
@@ -69,7 +69,7 @@ public class FoldersyncApp implements Callable<Integer> {
                 }
                 Database db = Database.forDestination(dst);
                 try {
-                    Syncer syncer = new Syncer(db, includePattern, excludePattern, force);
+                                    Syncer syncer = new Syncer(db, includePatterns, excludePatterns, force);
                     syncer.sync(src, dst);
                 } finally {
                     db.close();
@@ -153,7 +153,7 @@ public class FoldersyncApp implements Callable<Integer> {
                         for (Path dst : dests) {
                             Database db = Database.forDestination(dst);
                             try {
-                                Syncer syncer = new Syncer(db, includePattern, excludePattern, force);
+                                Syncer syncer = new Syncer(db, includePatterns, excludePatterns, force);
                                 syncer.sync(sourceRoot, dst);
                             } catch (Exception e) {
                                 org.slf4j.LoggerFactory.getLogger(FoldersyncApp.class).warn("Watch sync failed for {} -> {}", sourceRoot, dst, e);
