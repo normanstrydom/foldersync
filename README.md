@@ -25,12 +25,11 @@ Options:
 - `-d, --destination`: Destination directory (required).
 - `-i, --include`: Include glob pattern (optional). Example: `*.txt`.
 - `-e, --exclude`: Exclude glob pattern (optional). Example: `temp*`.
- - `-w, --watch`: Watch the source directory for changes and sync continuously (optional).
+ - `-i, --include`: Include glob pattern (optional). Repeatable to supply multiple patterns. If any include patterns are provided a file must match at least one to be considered. Example: `*.txt` or `**/*.txt`.
+ - `-e, --exclude`: Exclude glob pattern (optional). Repeatable to supply multiple patterns. If any exclude pattern matches the file's relative path the file is skipped. Example: `temp*` or `**/*.log*`.
  - `-w, --watch`: Watch the source directory for changes and sync continuously (optional).
  - Multiple `-s/--source` and `-d/--destination` options are supported. Repeat the options to provide multiple paths.
  - `--force`: Force re-copy of files even if unchanged (optional).
- - `--force`: Force re-copy of files even if unchanged (optional).
- - `--purge`: Clear destination contents before syncing. `foldersync.db` is preserved.
  - `--purge`: Clear destination contents before syncing. `foldersync.db` is preserved unless `--purge-db` is specified.
  - `--purge-db`: When used with `--purge`, also delete the `foldersync.db` file in the destination.
 
@@ -81,6 +80,17 @@ Notes:
 - A SQLite database file `foldersync.db` is created inside the destination directory to track files already copied.
 - This tool performs one-way synchronization (source → destination) and does not delete files from the destination.
 - If a file is being written to while copying is attempted, the file is skipped and a warning is logged; it will be retried on the next run.
+
+Excluding common patterns example:
+
+```
+java -jar target/foldersync-0.1.0-shaded.jar -s "C:\src" -d "D:\dst" -e "**/*.log*" -e "**/*.dat*"
+```
+
+Notes on patterns:
+
+- Patterns are standard Java glob patterns and are matched against the file's relative path under the source root (so `**/foo/*.txt` is valid).
+- Use `-i`/`-e` multiple times to specify several patterns; `-i` is treated as an allow-list (file must match at least one), `-e` is a deny-list (any match skips the file).
 
 Watch mode example:
 

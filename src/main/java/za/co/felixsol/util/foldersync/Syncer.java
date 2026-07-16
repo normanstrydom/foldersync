@@ -10,20 +10,20 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.function.Predicate;
+import java.util.*;
 
 public class Syncer {
     private static final Logger LOG = LoggerFactory.getLogger(Syncer.class);
 
     private final Database db;
-    private final String includePattern;
-    private final String excludePattern;
+    private final List<String> includePatterns;
+    private final List<String> excludePatterns;
     private final boolean force;
 
-    public Syncer(Database db, String includePattern, String excludePattern, boolean force) {
+    public Syncer(Database db, List<String> includePatterns, List<String> excludePatterns, boolean force) {
         this.db = db;
-        this.includePattern = includePattern;
-        this.excludePattern = excludePattern;
+        this.includePatterns = includePatterns == null ? List.of() : includePatterns;
+        this.excludePatterns = excludePatterns == null ? List.of() : excludePatterns;
         this.force = force;
     }
 
@@ -33,18 +33,14 @@ public class Syncer {
         }
         Files.createDirectories(dest);
 
-        final PathMatcher includeMatcher;
-        if (includePattern != null && !includePattern.isBlank()) {
-            includeMatcher = source.getFileSystem().getPathMatcher("glob:" + includePattern);
-        } else {
-            includeMatcher = null;
+        final List<PathMatcher> includeMatchers = new ArrayList<>();
+        for (String p : includePatterns) {
+            if (p != null && !p.isBlank()) includeMatchers.add(source.getFileSystem().getPathMatcher("glob:" + p));
         }
 
-        final PathMatcher excludeMatcher;
-        if (excludePattern != null && !excludePattern.isBlank()) {
-            excludeMatcher = source.getFileSystem().getPathMatcher("glob:" + excludePattern);
-        } else {
-            excludeMatcher = null;
+        final List<PathMatcher> excludeMatchers = new ArrayList<>();
+        for (String p : excludePatterns) {
+            if (p != null && !p.isBlank()) excludeMatchers.add(source.getFileSystem().getPathMatcher("glob:" + p));
         }
 
         Files.walkFileTree(source, new SimpleFileVisitor<>() {
@@ -52,9 +48,23 @@ public class Syncer {
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                 try {
                     Path rel = source.relativize(file);
-                    if ((includeMatcher != null && !includeMatcher.matches(file.getFileName()))
-                            || (excludeMatcher != null && excludeMatcher.matches(file.getFileName()))) {
-                        return FileVisitResult.CONTINUE;
+
+                    // include: if include matchers provided, require at least one to match
+                    if (!includeMatchers.isEmpty()) {
+                        boolean any = false;
+                        for (PathMatcher m : includeMatchers) {
+                            if (m.matches(rel)) { any = true; break; }
+                        }
+                        if (!any) return FileVisitResult.CONTINUE;
+                    }
+
+                    // exclude: if any exclude matcher matches, skip the file
+                    if (!excludeMatchers.isEmpty()) {
+                        boolean anyEx = false;
+                        for (PathMatcher m : excludeMatchers) {
+                            if (m.matches(rel)) { anyEx = true; break; }
+                        }
+                        if (anyEx) return FileVisitResult.CONTINUE;
                     }
                     Path target = dest.resolve(rel);
                     Files.createDirectories(target.getParent());
