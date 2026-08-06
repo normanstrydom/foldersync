@@ -97,7 +97,7 @@ public class FoldersyncApp implements Callable<Integer> {
                         .forEach(dir -> {
                             try {
                                 WatchKey k = dir.register(ws, StandardWatchEventKinds.ENTRY_CREATE,
-                                        StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE);
+                                        StandardWatchEventKinds.ENTRY_MODIFY);
                                 keyToSource.put(k, sourceRoot);
                             } catch (Exception e) {
                                 // ignore registration failures
@@ -132,7 +132,7 @@ public class FoldersyncApp implements Callable<Integer> {
                         try {
                             if (Files.isDirectory(child)) {
                                 WatchKey k = child.register(ws, StandardWatchEventKinds.ENTRY_CREATE,
-                                        StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE);
+                                        StandardWatchEventKinds.ENTRY_MODIFY);
                                 keyToSource.put(k, sourceRoot);
                             }
                         } catch (Exception ignore) {
